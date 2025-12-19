@@ -23,6 +23,74 @@ yarn add telegraphy sury
 
 > **Note**: Sury uses `new Function` for ultra-fast parsing. This approach is battle-tested and secure, also used by TypeBox, Zod v4, and ArkType.
 
+## Core Concepts
+
+### Feature
+
+A feature is a namespace for related RPC methods. Each method has a defined input and output schema:
+
+```typescript
+const myFeature = feature("featureName", {
+  methodName: transform(inputSchema).to(outputSchema),
+});
+```
+
+### Cable
+
+A cable is the client-side communication channel. It handles:
+- Authentication (Bearer token)
+- Serialization
+- HTTP transport
+- Error handling
+
+```typescript
+const cable = httpCable(endpoint, { token });
+```
+
+**Cable throws errors when:**
+- Endpoint is not provided
+- Auth token is missing
+- Server returns non-OK response
+
+### Remote
+
+A remote is a type-safe proxy for calling server methods:
+
+```typescript
+const remote = makeRemote(feature, cable);
+```
+
+The remote proxy:
+- Validates input before sending
+- Validates output after receiving
+- Provides full TypeScript type inference
+- Throws errors on validation failures
+
+### Route
+
+A route connects a feature definition to its server-side implementation:
+
+```typescript
+const route = makeRoute(feature, implFn);
+```
+
+Routes automatically:
+- Parse and validate input
+- Execute the implementation
+- Validate output
+- Serialize response
+
+### Router
+
+A router dispatches incoming RPC calls to the correct feature route:
+
+```typescript
+const router = makeRouter({
+  user: userRoute,
+  post: postRoute,
+  comment: commentRoute,
+});
+```
 ## Quick Start
 
 ### 1. Define a Feature
@@ -133,75 +201,6 @@ app.post("/rpc", async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-});
-```
-
-## Core Concepts
-
-### Feature
-
-A feature is a namespace for related RPC methods. Each method has a defined input and output schema:
-
-```typescript
-const myFeature = feature("featureName", {
-  methodName: transform(inputSchema).to(outputSchema),
-});
-```
-
-### Cable
-
-A cable is the client-side communication channel. It handles:
-- Authentication (Bearer token)
-- Serialization
-- HTTP transport
-- Error handling
-
-```typescript
-const cable = httpCable(endpoint, { token });
-```
-
-**Cable throws errors when:**
-- Endpoint is not provided
-- Auth token is missing
-- Server returns non-OK response
-
-### Remote
-
-A remote is a type-safe proxy for calling server methods:
-
-```typescript
-const remote = makeRemote(feature, cable);
-```
-
-The remote proxy:
-- Validates input before sending
-- Validates output after receiving
-- Provides full TypeScript type inference
-- Throws errors on validation failures
-
-### Route
-
-A route connects a feature definition to its server-side implementation:
-
-```typescript
-const route = makeRoute(feature, implFn);
-```
-
-Routes automatically:
-- Parse and validate input
-- Execute the implementation
-- Validate output
-- Serialize response
-
-### Router
-
-A router dispatches incoming RPC calls to the correct feature route:
-
-```typescript
-const router = makeRouter({
-  user: userRoute,
-  post: postRoute,
-  comment: commentRoute,
 });
 ```
 
