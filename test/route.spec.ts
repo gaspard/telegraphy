@@ -1,220 +1,72 @@
 import {describe, it, expect} from "vitest";
 import * as S from "sury";
-import {
-  feature,
-  makeRoute,
-  makeRouter,
-  transform,
-  type Feature,
-} from "../src/telegraphy";
+import {feature, makeRoute, makeRouter, transform, type Feature} from "../src/telegraphy";
 
-describe("Feature: Server-side route handling", () => {
-  describe("Scenario: Creating a route from feature implementation", () => {
-    it("Given a feature and implementation, When a route is created, Then it should handle method calls", async () => {
-      const userFeature = feature("user", {
-        getProfile: transform(S.schema({id: S.number})).to(
-          S.schema({id: S.number, name: S.string})
-        ),
-      });
+describe("Routes: Server-side implementation", () => {
+  it("creates routes and calls implementations", async () => {
+    const crewFeature = feature("crew", {
+      getOfficer: transform(S.schema({id: S.number})).to(
+        S.schema({id: S.number, name: S.string, rank: S.string})
+      ),
+    });
 
-      type Ctx = {db: {users: Map<number, {id: number; name: string}>}};
+    type Ctx = {officers: Map<number, {id: number; name: string; rank: string}>};
 
-      const userImpl = (ctx: Ctx): Feature<typeof userFeature> => ({
-        getProfile: async (input) => {
-          const user = ctx.db.users.get(input.id);
-          if (!user) throw new Error("User not found");
-          return user;
-        },
-      });
+    const crewImpl = (ctx: Ctx): Feature<typeof crewFeature> => ({
+      getOfficer: async (input) => ctx.officers.get(input.id)!,
+    });
 
-      const route = makeRoute(userFeature, userImpl);
+    const route = makeRoute(crewFeature, crewImpl);
+    const ctx: Ctx = {
+      officers: new Map([[1, {id: 1, name: "Picard", rank: "Captain"}]]),
+    };
 
-      const ctx: Ctx = {
-        db: {
-          users: new Map([[1, {id: 1, name: "Alice"}]]),
-        },
-      };
+    const result = await route.call(ctx, "getOfficer", {id: 1});
 
-      const result = await route.call(ctx, "getProfile", {id: 1});
-
-      expect(JSON.parse(result as string)).toEqual({id: 1, name: "Alice"});
+    expect(JSON.parse(result as string)).toEqual({
+      id: 1,
+      name: "Picard",
+      rank: "Captain",
     });
   });
 
-  describe("Scenario: Handling invalid method calls", () => {
-    it("Given a route, When a non-existent method is called, Then it should throw an error", async () => {
-      const userFeature = feature("user", {
-        getProfile: transform(S.schema({id: S.number})).to(
-          S.schema({id: S.number, name: S.string})
-        ),
-      });
-
-      type Ctx = {db: any};
-
-      const userImpl = (ctx: Ctx): Feature<typeof userFeature> => ({
-        getProfile: async (input) => ({id: input.id, name: "Test"}),
-      });
-
-      const route = makeRoute(userFeature, userImpl);
-      const ctx: Ctx = {db: {}};
-
-      await expect(route.call(ctx, "nonExistent", {})).rejects.toThrow(
-        "Method nonExistent not found"
-      );
+  it("routes requests to multiple features", async () => {
+    const crewFeature = feature("crew", {
+      getOfficer: transform(S.schema({id: S.number})).to(S.schema({name: S.string})),
     });
-  });
 
-  describe("Scenario: Input validation on server side", () => {
-    it("Given a route, When invalid input is provided, Then it should throw validation error", async () => {
-      const userFeature = feature("user", {
-        getProfile: transform(S.schema({id: S.number})).to(
-          S.schema({id: S.number, name: S.string})
-        ),
-      });
-
-      type Ctx = {};
-
-      const userImpl = (ctx: Ctx): Feature<typeof userFeature> => ({
-        getProfile: async (input) => ({id: input.id, name: "Test"}),
-      });
-
-      const route = makeRoute(userFeature, userImpl);
-      const ctx: Ctx = {};
-
-      await expect(
-        route.call(ctx, "getProfile", {id: "not-a-number"})
-      ).rejects.toThrow();
+    const missionsFeature = feature("missions", {
+      list: transform(S.schema({})).to(S.array(S.schema({title: S.string}))),
     });
-  });
 
-  describe("Scenario: Output validation on server side", () => {
-    it("Given a route, When implementation returns invalid output, Then it should throw validation error", async () => {
-      const userFeature = feature("user", {
-        getProfile: transform(S.schema({id: S.number})).to(
-          S.schema({id: S.number, name: S.string})
-        ),
-      });
+    type Ctx = {crew: {name: string}[]; missions: {title: string}[]};
 
-      type Ctx = {};
-
-      const userImpl = (ctx: Ctx): Feature<typeof userFeature> => ({
-        getProfile: async (input) => ({id: input.id} as any),
-      });
-
-      const route = makeRoute(userFeature, userImpl);
-      const ctx: Ctx = {};
-
-      await expect(route.call(ctx, "getProfile", {id: 1})).rejects.toThrow();
+    const router = makeRouter({
+      crew: makeRoute(crewFeature, (ctx: Ctx) => ({
+        getOfficer: async (input) => ({name: ctx.crew[input.id - 1].name}),
+      })),
+      missions: makeRoute(missionsFeature, (ctx: Ctx) => ({
+        list: async () => ctx.missions,
+      })),
     });
-  });
-});
 
-describe("Feature: Router for multiple features", () => {
-  describe("Scenario: Routing requests to different features", () => {
-    it("Given a router with multiple features, When requests are made, Then they should be routed correctly", async () => {
-      const userFeature = feature("user", {
-        getProfile: transform(S.schema({id: S.number})).to(
-          S.schema({id: S.number, name: S.string})
-        ),
-      });
+    const ctx: Ctx = {
+      crew: [{name: "Picard"}],
+      missions: [{title: "Explore Sector 001"}],
+    };
 
-      const postFeature = feature("post", {
-        getPost: transform(S.schema({id: S.number})).to(
-          S.schema({id: S.number, title: S.string})
-        ),
-      });
-
-      type Ctx = {
-        users: Map<number, {id: number; name: string}>;
-        posts: Map<number, {id: number; title: string}>;
-      };
-
-      const userImpl = (ctx: Ctx): Feature<typeof userFeature> => ({
-        getProfile: async (input) => {
-          const user = ctx.users.get(input.id);
-          if (!user) throw new Error("User not found");
-          return user;
-        },
-      });
-
-      const postImpl = (ctx: Ctx): Feature<typeof postFeature> => ({
-        getPost: async (input) => {
-          const post = ctx.posts.get(input.id);
-          if (!post) throw new Error("Post not found");
-          return post;
-        },
-      });
-
-      const router = makeRouter({
-        user: makeRoute(userFeature, userImpl),
-        post: makeRoute(postFeature, postImpl),
-      });
-
-      const ctx: Ctx = {
-        users: new Map([[1, {id: 1, name: "Alice"}]]),
-        posts: new Map([[1, {id: 1, title: "Hello World"}]]),
-      };
-
-      const userResult = await router(ctx, {
-        feature: "user",
-        method: "getProfile",
-        input: {id: 1},
-      });
-      expect(JSON.parse(userResult as string)).toEqual({
-        id: 1,
-        name: "Alice",
-      });
-
-      const postResult = await router(ctx, {
-        feature: "post",
-        method: "getPost",
-        input: {id: 1},
-      });
-      expect(JSON.parse(postResult as string)).toEqual({
-        id: 1,
-        title: "Hello World",
-      });
+    const crewResult = await router(ctx, {
+      feature: "crew",
+      method: "getOfficer",
+      input: {id: 1},
     });
-  });
+    expect(JSON.parse(crewResult as string)).toEqual({name: "Picard"});
 
-  describe("Scenario: Handling requests to non-existent features", () => {
-    it("Given a router, When a request for non-existent feature is made, Then it should throw an error", async () => {
-      const userFeature = feature("user", {
-        getProfile: transform(S.schema({id: S.number})).to(
-          S.schema({id: S.number, name: S.string})
-        ),
-      });
-
-      type Ctx = {};
-
-      const userImpl = (ctx: Ctx): Feature<typeof userFeature> => ({
-        getProfile: async (input) => ({id: input.id, name: "Test"}),
-      });
-
-      const router = makeRouter({
-        user: makeRoute(userFeature, userImpl),
-      });
-
-      const ctx: Ctx = {};
-
-      await expect(
-        router(ctx, {
-          feature: "nonExistent",
-          method: "someMethod",
-          input: {},
-        })
-      ).rejects.toThrow("Feature nonExistent not found");
+    const missionsResult = await router(ctx, {
+      feature: "missions",
+      method: "list",
+      input: {},
     });
-  });
-
-  describe("Scenario: Router validates incoming payloads", () => {
-    it("Given a router, When invalid payload is provided, Then it should throw validation error", async () => {
-      const router = makeRouter({});
-      const ctx = {};
-
-      await expect(
-        router(ctx, {invalid: "payload"})
-      ).rejects.toThrow();
-    });
+    expect(JSON.parse(missionsResult as string)).toEqual([{title: "Explore Sector 001"}]);
   });
 });

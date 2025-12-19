@@ -1,15 +1,19 @@
-# Telegraphy
+# Telegraphy 🖖
 
-A type-safe RPC (Remote Procedure Call) system with schema validation, built for TypeScript applications. Telegraphy creates a clean boundary between client and server code while maintaining full type safety across the network.
+> "Make it so." — Captain Jean-Luc Picard
+
+A type-safe RPC (Remote Procedure Call) system with schema validation, built for TypeScript applications. Telegraphy creates a clean boundary between client and server code while maintaining full type safety across the network — like warping your function calls across space at faster-than-light speeds.
 
 ## Features
 
 - 🔒 **Type-safe**: Full TypeScript type inference from client to server
 - ✅ **Schema validation**: Runtime validation using [Sury](https://github.com/DZakh/sury) - the fastest schema library in JavaScript
 - 🎯 **Simple API**: Minimal boilerplate with intuitive function-based design
-- 🔌 **Pluggable**: Works with any HTTP transport layer
+- 🔌 **Pluggable**: Works with any transport layer (HTTP, WebSockets, carrier pigeon)
 - 🧪 **Testable**: Clear separation between definition and implementation
-- ⚡ **Fast**: Leverages Sury's JIT compilation for ultra-fast validation
+- ⚡ **Fast**: Leverages Sury's JIT compilation for ultra-fast validation (Warp 9.975)
+- 🚫 **No codegen**: Zero build-time code generation required - just pure TypeScript types
+- 🏗️ **DDD-friendly**: Clean separation between transport, features, and business logic
 
 ## Installation
 
@@ -27,44 +31,65 @@ yarn add telegraphy sury
 
 ### Feature
 
-A feature is a namespace for related RPC methods. Each method has a defined input and output schema:
+A feature is a namespace for related methods. Each method has a typed input and output schema. Features can be tested locally by calling implementations directly, then warped to a remote location using a cable while keeping the same callable interface.
 
 ```typescript
 const myFeature = feature("featureName", {
   methodName: transform(inputSchema).to(outputSchema),
 });
+
+// example: Starship operations
+const starship = feature("starship", {
+  status: transform(S.schema({})).to(
+    S.schema({ 
+      shields: S.number, 
+      warpCore: S.string,
+      crewCount: S.number 
+    })
+  ),
+  setWarpSpeed: transform(
+    S.schema({ factor: S.number })
+  ).to(
+    S.schema({ engaged: S.boolean })
+  ),
+  raiseShields: transform(
+    S.schema({ strength: S.number })
+  ).to(
+    S.schema({ active: S.boolean })
+  ),
+});
 ```
 
 ### Cable
 
-A cable is the client-side communication channel. It handles:
+A cable is the client-side communication channel — think of it as your warp drive. It handles:
 - Authentication (Bearer token)
 - Serialization
-- HTTP transport
+- Transport protocols
 - Error handling
 
 ```typescript
 const cable = httpCable(endpoint, { token });
 ```
 
-**Cable throws errors when:**
+**Cable errors (shields down):**
 - Endpoint is not provided
 - Auth token is missing
 - Server returns non-OK response
 
 ### Remote
 
-A remote is a type-safe proxy for calling server methods:
+A remote is a type-safe proxy for calling server methods — your ship's console that connects to remote stations:
 
 ```typescript
 const remote = makeRemote(feature, cable);
 ```
 
-The remote proxy:
-- Validates input before sending
-- Validates output after receiving
+The remote proxy (bridge console):
+- Validates input before sending (pre-flight checks)
+- Validates output after receiving (sensor verification)
 - Provides full TypeScript type inference
-- Throws errors on validation failures
+- Throws errors on validation failures (red alert!)
 
 ### Route
 
@@ -82,42 +107,42 @@ Routes automatically:
 
 ### Router
 
-A router dispatches incoming RPC calls to the correct feature route:
+A router dispatches incoming RPC calls to the correct feature route — like the ship's computer routing commands to different stations:
 
 ```typescript
 const router = makeRouter({
-  user: userRoute,
-  post: postRoute,
-  comment: commentRoute,
+  engineering: engineeringRoute,
+  tactical: tacticalRoute,
+  navigation: navigationRoute,
 });
 ```
 ## Quick Start
 
-### 1. Define a Feature
+### 1. Define a Feature — The Prime Directive
 
-The code from this part is shared between the client and server.
-
-A feature is a collection of related methods with typed input/output.
+The code from this part is shared between the client and server — your Federation treaty that both sides agree on.
 
 ```typescript
 import * as S from "sury";
 import { feature, transform } from "telegraphy";
 
-export const usersFeature = feature("user", {
-  getProfile: transform(
+// Define crew operations
+export const crewFeature = feature("crew", {
+  getOfficer: transform(
     S.schema({ id: S.number })
   ).to(
     S.schema({ 
       id: S.number, 
       name: S.string,
-      email: S.string 
+      rank: S.string,
+      station: S.string
     })
   ),
   
-  updateProfile: transform(
+  assignMission: transform(
     S.schema({ 
-      id: S.number, 
-      name: S.string 
+      officerId: S.number, 
+      mission: S.string 
     })
   ).to(
     S.schema({ success: S.boolean })
@@ -125,80 +150,89 @@ export const usersFeature = feature("user", {
 });
 ```
 
-### 2. Client-Side Usage
+### 2. Client-Side Usage — Bridge Controls
 
-Create a remote proxy that calls your backend:
+Create a remote proxy that warps your calls to the backend:
 
 ```typescript
 import { httpCable, makeRemote } from "telegraphy";
-import { usersFeature } from "./feature/users.ts";
+import { crewFeature } from "./features/crew";
 
-// Create a cable (communication channel)
-const cable = httpCable("https://api.example.com/rpc", {
-  token: "your-auth-token"
+// Create a cable (your warp drive)
+const cable = httpCable("https://starfleet.federation/rpc", {
+  token: "your-starfleet-authorization-code"
 });
 
-// Create a type-safe remote proxy
-const users = makeRemote(usersFeature, cable);
+// Create a type-safe remote proxy (bridge console)
+const crew = makeRemote(crewFeature, cable);
 
-// Call methods with full type safety
-const profile = await users.getProfile({ id: 42 });
-console.log(profile.name); // ✅ TypeScript knows this is a string
+// Make it so! ✨ Call methods with full type safety
+const officer = await crew.getOfficer({ id: 1 });
+console.log(officer.name); // ✅ "Jean-Luc Picard"
+console.log(officer.rank); // ✅ "Captain"
 
-await users.updateProfile({ id: 42, name: "Alice" });
+// Assign a mission
+await crew.assignMission({ 
+  officerId: 1, 
+  mission: "Explore strange new worlds" 
+});
 ```
 
-### 3. Server-Side Implementation
+### 3. Server-Side Implementation — Starfleet Command
 
-Implement the feature methods on your server:
+Implement the feature methods on your server (where the actual work happens):
 
 ```typescript
 import { makeRoute, makeRouter, type Feature } from "telegraphy";
-import { usersFeature } from "./features";
+import { crewFeature } from "./features/crew";
 
-// Define your context type
+// Define your context (ship's systems)
 type Context = {
   db: Database;
-  userId: number;
+  currentUser: Officer;
 };
 
-// Implement the feature
-const userImpl = (ctx: Context): Feature<typeof usersFeature> => ({
-  getProfile: async (input) => {
-    const user = await ctx.db.users.findById(input.id);
+// Implement the feature (actual station operations)
+const crewImpl = (ctx: Context): Feature<typeof crewFeature> => ({
+  getOfficer: async (input) => {
+    const officer = await ctx.db.officers.findById(input.id);
     return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
+      id: officer.id,
+      name: officer.name,
+      rank: officer.rank,
+      station: officer.station,
     };
   },
   
-  updateProfile: async (input) => {
-    await ctx.db.users.update(input.id, { name: input.name });
+  assignMission: async (input) => {
+    await ctx.db.missions.assign(input.officerId, input.mission);
     return { success: true };
   },
 });
 
-// Create routes
-const userRoute = makeRoute(usersFeature, userImpl);
+// Create routes (station hookups)
+const crewRoute = makeRoute(crewFeature, crewImpl);
 
-// Create a router for multiple features
+// Create a router (main computer)
 const router = makeRouter({
-  user: userRoute,
-  // Add more features here...
+  crew: crewRoute,
+  engineering: engineeringRoute,
+  tactical: tacticalRoute,
+  // More stations...
 });
 
-// Use in your HTTP handler (e.g., Express)
+// Use in your HTTP handler (communications array)
 app.post("/rpc", async (req, res) => {
   const ctx: Context = {
     db: database,
-    userId: req.user.id,
+    currentUser: req.user,
   };
   
   try {
     const result = await router(ctx, req.body);
     res.json(JSON.parse(result));
   } catch (error) {
+    // Red alert!
     res.status(400).json({ error: error.message });
   }
 });
@@ -226,29 +260,29 @@ const implementation = (ctx: Context): Feature<typeof myFeature> => ({
 });
 ```
 
-### Complex Schemas
+### Complex Schemas — Detailed Sensor Readings
 
-Leverage sury's schema system for complex validations:
+Leverage sury's schema system for complex validations (like sophisticated sensor arrays):
 
 ```typescript
-const taskFeature = feature("task", {
-  create: transform(
+const scanFeature = feature("scan", {
+  analyzePlanet: transform(
     S.schema({
-      title: S.string,
-      description: S.string,
-      tags: S.array(S.string),
+      coordinates: S.string,
+      depth: S.string, // "surface" | "deep"
+      sensors: S.array(S.string),
       priority: S.optional(S.number),
-      dueDate: S.optional(S.string),
+      awayTeam: S.optional(S.array(S.number)),
     })
   ).to(
     S.schema({
       id: S.number,
-      title: S.string,
-      description: S.string,
-      tags: S.array(S.string),
-      priority: S.number,
-      dueDate: S.nullable(S.string),
-      createdAt: S.string,
+      planetName: S.string,
+      classification: S.string,
+      lifeforms: S.array(S.string),
+      atmosphere: S.string,
+      recommendation: S.string,
+      scannedAt: S.string,
     })
   ),
 });
@@ -271,28 +305,97 @@ try {
 }
 ```
 
-### Testing
+### Domain-Driven Design — Separation of Concerns
 
-Test features independently from transport:
+Telegraphy makes it trivial to separate your business logic from transport concerns. Your implementations are pure functions with zero HTTP/network dependencies:
+
+```typescript
+// Pure business logic - no HTTP, no GraphQL, no transport
+const crewImpl = (ctx: Context): Feature<typeof crewFeature> => ({
+  getOfficer: async (input) => {
+    // Pure domain logic
+    const officer = await ctx.db.officers.findById(input.id);
+    if (!officer) {
+      throw new Error("Officer not found");
+    }
+    return officer;
+  },
+});
+
+// Test your business logic directly - no mocking HTTP or GraphQL execution
+describe("Crew business logic", () => {
+  it("retrieves officer from database", async () => {
+    const mockDb = {
+      officers: {
+        findById: vi.fn(async () => ({ 
+          id: 1, 
+          name: "Picard", 
+          rank: "Captain",
+          station: "Bridge" 
+        }))
+      }
+    };
+    
+    const impl = crewImpl({ db: mockDb, currentUser: mockUser });
+    const result = await impl.getOfficer({ id: 1 });
+    
+    expect(result.name).toBe("Picard");
+    expect(mockDb.officers.findById).toHaveBeenCalledWith(1);
+  });
+});
+
+// Transport layer is completely separate
+// Can use HTTP, WebSockets, message queues, or call directly
+const route = makeRoute(crewFeature, crewImpl);
+const router = makeRouter({ crew: route });
+
+// Use with Express
+app.post("/rpc", async (req, res) => {
+  const result = await router(ctx, req.body);
+  res.json(JSON.parse(result));
+});
+
+// Or use with WebSockets
+ws.on("message", async (data) => {
+  const result = await router(ctx, JSON.parse(data));
+  ws.send(result);
+});
+
+// Or call directly in-process (same app, no network)
+const directResult = await router(ctx, {
+  feature: "crew",
+  method: "getOfficer",
+  input: { id: 1 }
+});
+```
+
+Compare this to GraphQL where resolvers are aware of GraphQL-specific objects (parent, args, context, info) and tRPC where procedures know about the router context.
+
+### Testing — Holodeck Simulations
+
+Test features independently from transport (like running holodeck scenarios):
 
 ```typescript
 import { describe, it, expect, vi } from "vitest";
 import { makeRemote } from "telegraphy";
 
-describe("User feature", () => {
-  it("calls cable with correct parameters", async () => {
+describe("Crew operations", () => {
+  it("warps commands correctly", async () => {
+    // Mock cable (simulated warp drive)
     const mockCable = vi.fn(async () => ({ 
       id: 1, 
-      name: "Test User",
-      email: "test@example.com"
+      name: "Jean-Luc Picard",
+      rank: "Captain",
+      station: "Bridge"
     }));
     
-    const remote = makeRemote(usersFeature, mockCable);
-    await remote.getProfile({ id: 1 });
+    const remote = makeRemote(crewFeature, mockCable);
+    await remote.getOfficer({ id: 1 });
     
+    // Verify the warp transmission
     expect(mockCable).toHaveBeenCalledWith(
-      "user",
-      "getProfile",
+      "crew",
+      "getOfficer",
       { id: 1 }
     );
   });
@@ -374,37 +477,47 @@ Creates a request router for multiple features.
 
 **Returns:** Router function `(ctx, payload) => Promise<string>`
 
-## Type System
+## Type System — No Codegen Required
 
-Telegraphy provides complete type inference:
+Telegraphy provides complete type inference without any code generation. Feature types are proper TypeScript types that you can import, export, and use directly:
 
 ```typescript
-type UsersFeature = typeof usersFeature;
-type Remote = Feature<UsersFeature>;
+type CrewFeature = typeof crewFeature;
+type Remote = Feature<CrewFeature>;
 
-// Remote has type:
+// Remote has type (your bridge console interface):
 // {
-//   getProfile: (input: { id: number }) => Promise<{ 
+//   getOfficer: (input: { id: number }) => Promise<{ 
 //     id: number; 
 //     name: string; 
-//     email: string 
+//     rank: string;
+//     station: string;
 //   }>;
-//   updateProfile: (input: { id: number; name: string }) => Promise<{ 
+//   assignMission: (input: { officerId: number; mission: string }) => Promise<{ 
 //     success: boolean 
 //   }>;
 // }
+
+// These are real TypeScript types, not inferred signatures
+// You can use them anywhere in your codebase
+import type { Feature } from "telegraphy";
+import type { crewFeature } from "./features/crew";
+
+type CrewOperations = Feature<typeof crewFeature>;
+// Use CrewOperations as a type constraint, in generics, etc.
 ```
 
-## Design Philosophy
+## Design Philosophy — The Prime Directives
 
 Telegraphy follows these principles:
 
-1. **Type Safety First**: Types flow seamlessly from client to server
-2. **Simple & Direct**: Minimal abstractions, maximum clarity
-3. **Validation at Boundaries**: Trust nothing across the network
-4. **Separation of Concerns**: Definition, implementation, and transport are separate
-5. **Framework Agnostic**: Works with any HTTP server or client
-6. **Performance**: Built on [Sury](https://github.com/DZakh/sury), the fastest validation library (94,828+ ops/ms)
+1. **Type Safety First**: Types flow seamlessly from client to server (like a well-coordinated bridge crew)
+2. **Simple & Direct**: Minimal abstractions, maximum clarity ("Make it so")
+3. **Validation at Boundaries**: Trust nothing across the network (shields up!)
+4. **Separation of Concerns**: Definition, implementation, and transport are separate (different stations, one ship)
+5. **Domain-Driven Design**: Business logic lives in pure functions, completely decoupled from HTTP/network concerns
+6. **Framework Agnostic**: Works with any HTTP server or client (compatible with all Federation vessels)
+7. **Performance**: Built on [Sury](https://github.com/DZakh/sury), the fastest validation library (94,828+ ops/ms at Warp 9.975)
 
 ## Testing
 
@@ -424,32 +537,59 @@ npm run test:watch
 pnpm test:watch
 ```
 
-## Use Cases
+## Use Cases — Mission Parameters
 
 Telegraphy is ideal for:
 
-- 🌐 Full-stack TypeScript applications
-- 📱 Mobile apps with TypeScript backends
-- 🔧 Microservices communication
-- 🚀 API-first development
-- 🧩 Type-safe third-party integrations
+- 🌐 Full-stack TypeScript applications (Starfleet operations)
+- 📱 Mobile apps with TypeScript backends (tricorders)
+- 🔧 Microservices communication (ship-to-ship hails)
+- 🚀 API-first development (Federation protocols)
+- 🧩 Type-safe third-party integrations (alien technology interface)
 
 ## Comparison with Other Solutions
 
 ### vs tRPC
 
-- **Telegraphy**: Explicit schema validation, clear client/server boundary
-- **tRPC**: Inference-based, tighter coupling
+- **Telegraphy**: 
+  - Explicit schema validation with runtime guarantees
+  - Proper TypeScript types that can be imported and used directly
+  - Clear client/server boundary with shared feature definitions
+  - Feature types are actual TS types, not inferred function signatures
+  - Transport-agnostic core - business logic has zero HTTP dependencies
+- **tRPC**: 
+  - Inference-based without explicit schemas
+  - Types are inferred from implementation, not defined separately
+  - Tighter coupling between client and server
+  - Cannot easily extract or reuse type definitions
+  - Procedures are tightly coupled to the router/HTTP layer
 
 ### vs GraphQL
 
-- **Telegraphy**: Simpler, RPC-style, method-based
-- **GraphQL**: Query language, graph-based, more complex
+- **Telegraphy**: 
+  - Zero codegen - just write TypeScript
+  - Simpler, RPC-style, method-based
+  - No build step required for types
+  - Direct function calls with schemas
+  - **Clean separation**: Features define contracts, implementations are pure business logic, cables handle transport
+  - Test business logic without any GraphQL/HTTP infrastructure
+- **GraphQL**: 
+  - Requires code generation tooling (graphql-codegen, etc.)
+  - Query language with separate schema definition language
+  - Graph-based, more complex
+  - Build-time tooling dependency
+  - **Tight coupling**: Resolvers are aware of GraphQL context, info objects, and field resolvers
+  - Business logic often mixed with GraphQL-specific concepts
+  - Testing requires GraphQL execution environment
 
 ### vs REST
 
-- **Telegraphy**: Type-safe, schema-validated, single endpoint
-- **REST**: Resource-based, multiple endpoints, typically less type-safe
+- **Telegraphy**: 
+  - Type-safe, schema-validated, single endpoint
+  - Features are transport-independent - can be called directly or remotely
+- **REST**: 
+  - Resource-based, multiple endpoints, typically less type-safe
+  - Business logic often tightly coupled to HTTP controllers
 
 ## License
 
@@ -461,13 +601,19 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## Acknowledgments
 
+> "Highly illogical... but remarkably efficient." — Spock (probably)
+
 Built with [Sury](https://github.com/DZakh/sury) (aka ReScript Schema) for schema validation. Sury is the fastest schema library in the JavaScript ecosystem, featuring:
 
-- Ultra-fast parsing via JIT compilation
+- Ultra-fast parsing via JIT compilation (dilithium-powered)
 - Small bundle size (14.1 kB min + gzip)
 - Tree-shakable API
 - Standard Schema spec implementation
 - Built-in JSON Schema support
 
 Learn more at the [Sury documentation](https://github.com/DZakh/sury).
+
+---
+
+**Live long and prosper.** 🖖
 
