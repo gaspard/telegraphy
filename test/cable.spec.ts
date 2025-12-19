@@ -2,12 +2,12 @@ import {describe, it, expect, beforeEach, vi} from "vitest";
 import * as S from "sury";
 import {
   feature,
-  makeCable,
   makeRemote,
+  transform,
   type Cable,
   type Feature,
-  transform,
-} from "./index";
+} from "../src/telegraphy";
+import {httpCable} from "../src/http";
 
 describe("Feature: Client-side cable communication", () => {
   describe("Scenario: Creating a cable with valid configuration", () => {
@@ -15,7 +15,7 @@ describe("Feature: Client-side cable communication", () => {
       const endpoint = "https://api.example.com/rpc";
       const auth = {token: "test-token"};
 
-      const cable = makeCable(endpoint, auth);
+      const cable = httpCable(endpoint, auth);
 
       expect(cable).toBeDefined();
       expect(typeof cable).toBe("function");
@@ -26,7 +26,7 @@ describe("Feature: Client-side cable communication", () => {
     it("Given no endpoint, When cable creation is attempted, Then it should throw an error", () => {
       const auth = {token: "test-token"};
 
-      expect(() => makeCable(undefined, auth)).toThrow(
+      expect(() => httpCable(undefined, auth)).toThrow(
         "Backend endpoint is not set"
       );
     });
@@ -44,7 +44,7 @@ describe("Feature: Client-side cable communication", () => {
     it("Given an authenticated cable, When a remote method is called, Then it should send the correct request", async () => {
       const endpoint = "https://api.example.com/rpc";
       const auth = {token: "test-token-123"};
-      cable = makeCable(endpoint, auth);
+      cable = httpCable(endpoint, auth);
 
       mockFetch.mockResolvedValue({
         ok: true,
@@ -76,7 +76,7 @@ describe("Feature: Client-side cable communication", () => {
     it("Given a cable without auth token, When a remote method is called, Then it should throw an error", async () => {
       const endpoint = "https://api.example.com/rpc";
       const auth = {token: null};
-      const cable = makeCable(endpoint, auth);
+      const cable = httpCable(endpoint, auth);
 
       await expect(cable("user", "getProfile", {id: 42})).rejects.toThrow(
         "User not authenticated, cannot call cable without a token"
@@ -96,7 +96,7 @@ describe("Feature: Client-side cable communication", () => {
     it("Given a cable, When the remote call fails, Then it should throw an error with details", async () => {
       const endpoint = "https://api.example.com/rpc";
       const auth = {token: "test-token"};
-      cable = makeCable(endpoint, auth);
+      cable = httpCable(endpoint, auth);
 
       mockFetch.mockResolvedValue({
         ok: false,

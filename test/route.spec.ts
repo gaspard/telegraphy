@@ -6,7 +6,7 @@ import {
   makeRouter,
   transform,
   type Feature,
-} from "./index";
+} from "../src/telegraphy";
 
 describe("Feature: Server-side route handling", () => {
   describe("Scenario: Creating a route from feature implementation", () => {

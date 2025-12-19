@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import {describe, it, expect} from "vitest";
 import * as S from "sury";
-import { feature, transform } from "./index";
+import {feature, transform} from "../src/telegraphy";
 
 describe("Feature: Schema-based feature definition", () => {
   describe("Scenario: Defining a feature with schema", () => {
     it("Given a feature name and schema, When feature is created, Then it should have correct structure", () => {
       const userFeature = feature("user", {
-        getProfile: transform(S.schema({ id: S.number })).to(
-          S.schema({ id: S.number, name: S.string })
+        getProfile: transform(S.schema({id: S.number})).to(
+          S.schema({id: S.number, name: S.string})
         ),
       });
 
@@ -21,8 +21,8 @@ describe("Feature: Schema-based feature definition", () => {
 
   describe("Scenario: Defining input-output transformation", () => {
     it("Given input and output schemas, When transform is used, Then it should create a callable definition", () => {
-      const inputSchema = S.schema({ id: S.number });
-      const outputSchema = S.schema({ id: S.number, name: S.string });
+      const inputSchema = S.schema({id: S.number});
+      const outputSchema = S.schema({id: S.number, name: S.string});
 
       const callable = transform(inputSchema).to(outputSchema);
 
@@ -61,8 +61,8 @@ describe("Feature: Schema-based feature definition", () => {
             updatedAt: S.string,
           })
         ),
-        delete: transform(S.schema({ id: S.number })).to(
-          S.schema({ success: S.boolean })
+        delete: transform(S.schema({id: S.number})).to(
+          S.schema({success: S.boolean})
         ),
         list: transform(S.schema({})).to(
           S.array(

@@ -27,13 +27,15 @@ yarn add telegraphy sury
 
 ### 1. Define a Feature
 
-A feature is a collection of related RPC methods with typed input/output schemas:
+The code from this part is shared between the client and server.
+
+A feature is a collection of related methods with typed input/output.
 
 ```typescript
 import * as S from "sury";
 import { feature, transform } from "telegraphy";
 
-export const userFeature = feature("user", {
+export const usersFeature = feature("user", {
   getProfile: transform(
     S.schema({ id: S.number })
   ).to(
@@ -60,22 +62,22 @@ export const userFeature = feature("user", {
 Create a remote proxy that calls your backend:
 
 ```typescript
-import { makeCable, makeRemote } from "telegraphy";
-import { userFeature } from "./features";
+import { httpCable, makeRemote } from "telegraphy";
+import { usersFeature } from "./feature/users.ts";
 
 // Create a cable (communication channel)
-const cable = makeCable("https://api.example.com/rpc", {
+const cable = httpCable("https://api.example.com/rpc", {
   token: "your-auth-token"
 });
 
 // Create a type-safe remote proxy
-const userApi = makeRemote(userFeature, cable);
+const users = makeRemote(usersFeature, cable);
 
 // Call methods with full type safety
-const profile = await userApi.getProfile({ id: 42 });
+const profile = await users.getProfile({ id: 42 });
 console.log(profile.name); // ✅ TypeScript knows this is a string
 
-await userApi.updateProfile({ id: 42, name: "Alice" });
+await users.updateProfile({ id: 42, name: "Alice" });
 ```
 
 ### 3. Server-Side Implementation
@@ -84,7 +86,7 @@ Implement the feature methods on your server:
 
 ```typescript
 import { makeRoute, makeRouter, type Feature } from "telegraphy";
-import { userFeature } from "./features";
+import { usersFeature } from "./features";
 
 // Define your context type
 type Context = {
@@ -93,7 +95,7 @@ type Context = {
 };
 
 // Implement the feature
-const userImpl = (ctx: Context): Feature<typeof userFeature> => ({
+const userImpl = (ctx: Context): Feature<typeof usersFeature> => ({
   getProfile: async (input) => {
     const user = await ctx.db.users.findById(input.id);
     return {
@@ -110,7 +112,7 @@ const userImpl = (ctx: Context): Feature<typeof userFeature> => ({
 });
 
 // Create routes
-const userRoute = makeRoute(userFeature, userImpl);
+const userRoute = makeRoute(usersFeature, userImpl);
 
 // Create a router for multiple features
 const router = makeRouter({
@@ -155,7 +157,7 @@ A cable is the client-side communication channel. It handles:
 - Error handling
 
 ```typescript
-const cable = makeCable(endpoint, { token });
+const cable = httpCable(endpoint, { token });
 ```
 
 **Cable throws errors when:**
@@ -286,7 +288,7 @@ describe("User feature", () => {
       email: "test@example.com"
     }));
     
-    const remote = makeRemote(userFeature, mockCable);
+    const remote = makeRemote(usersFeature, mockCable);
     await remote.getProfile({ id: 1 });
     
     expect(mockCable).toHaveBeenCalledWith(
@@ -324,7 +326,7 @@ Creates a callable definition with input/output schemas.
 
 ---
 
-### `makeCable(endpoint, auth)`
+### `httpCable(endpoint, auth)`
 
 Creates a client-side communication channel.
 
@@ -378,8 +380,8 @@ Creates a request router for multiple features.
 Telegraphy provides complete type inference:
 
 ```typescript
-type UserFeature = typeof userFeature;
-type Remote = Feature<UserFeature>;
+type UsersFeature = typeof usersFeature;
+type Remote = Feature<UsersFeature>;
 
 // Remote has type:
 // {

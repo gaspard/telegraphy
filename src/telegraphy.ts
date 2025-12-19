@@ -11,30 +11,6 @@ export const feature = <T>(name: string, schema: T) => {
   };
 };
 
-export function makeCable(endpoint: string | undefined, auth: { token: string | null }): Cable {
-  if (!endpoint) {
-    throw new Error("Backend endpoint is not set");
-  }
-  return async (feature: string, method: string, input: unknown) => {
-    if (!auth.token) {
-      throw new Error("User not authenticated, cannot call cable without a token");
-    }
-    const headers = new Headers();
-    headers.set("Content-Type", "application/json");
-    headers.set("Authorization", `Bearer ${auth.token}`);
-    const payload: CableInput = { feature, method, input };
-    const response = await fetch(endpoint, {
-      headers,
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to call ${feature}.${method}: ${response.statusText}`);
-    }
-    return await response.json();
-  };
-}
-
 export const transform = <I>(input: I) => {
   return {
     to: <O>(output: O) => {
@@ -86,7 +62,7 @@ export function makeRemote<A extends AnyFeature>(feature: A, cable: Cable) {
       get: (_, method) => {
         const callable = schema[method as keyof typeof schema] as unknown;
         return async (arg: unknown) => {
-          const { input, output } = callable as Callable<S.Schema<unknown>, S.Schema<unknown>>;
+          const {input, output} = callable as Callable<S.Schema<unknown>, S.Schema<unknown>>;
           const parsedInput = S.parseOrThrow(arg, input);
           const result = await cable(featureName, String(method), parsedInput);
           return S.parseOrThrow(result, output);
@@ -96,13 +72,11 @@ export function makeRemote<A extends AnyFeature>(feature: A, cable: Cable) {
   ) as Feature<A>;
 }
 
-/// Server
 export type Route<Ctx> = {
   call: (ctx: Ctx, method: string, arg: unknown) => Promise<unknown>;
 };
 
 export function makeRoute<Ctx, A extends AnyFeature>(feature: A, implFn: (ctx: Ctx) => Feature<A>): Route<Ctx> {
-  // const featureName = feature.name;
   const schema = feature.schema;
   return {
     call: async (ctx: Ctx, method: keyof typeof schema, arg: unknown) => {
@@ -110,7 +84,7 @@ export function makeRoute<Ctx, A extends AnyFeature>(feature: A, implFn: (ctx: C
       if (!callable) {
         throw new Error(`Method ${String(method)} not found`);
       }
-      const { input, output } = callable;
+      const {input, output} = callable;
       const parsedInput = S.parseOrThrow(arg, input);
       const impl = implFn(ctx);
       const fn = impl[method as keyof typeof impl];
@@ -125,7 +99,7 @@ export function makeRoute<Ctx, A extends AnyFeature>(feature: A, implFn: (ctx: C
 
 export function makeRouter<Ctx>(routes: Record<string, Route<Ctx>>) {
   return async (ctx: Ctx, payload: unknown) => {
-    const { feature, method, input } = S.parseOrThrow(payload, cableSchema);
+    const {feature, method, input} = S.parseOrThrow(payload, cableSchema);
     const route = routes[feature];
     if (!route) {
       throw new Error(`Feature ${feature} not found`);
@@ -133,4 +107,3 @@ export function makeRouter<Ctx>(routes: Record<string, Route<Ctx>>) {
     return await route.call(ctx, method, input);
   };
 }
-
